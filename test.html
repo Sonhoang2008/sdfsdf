@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Lời cảm ơn — Khung dọc</title>
+  <style>
+    :root{
+      --bg:#ffecf4; /* nền hồng nhạt */
+      --pink:#ff8fc0; /* khung hồng */
+      --pink-light:#ffd6ea; /* ô chữ */
+      --text:#3b2d2d;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;padding:24px;background:var(--bg);font-family:Inter, system-ui, -apple-system, 'Helvetica Neue', Arial;color:var(--text);-webkit-font-smoothing:antialiased;
+      display:flex;align-items:flex-start;justify-content:center;
+    }
+
+    /* khung chứa (mobile dọc) */
+    .wrap{width:100%;max-width:420px;display:flex;flex-direction:column;gap:18px}
+
+    .box{
+      background:linear-gradient(180deg,var(--pink),#ff7bb3);
+      border-radius:20px;overflow:hidden;position:relative;box-shadow:0 8px 30px rgba(0,0,0,0.08);
+      min-height:260px;height:60vh;display:flex;align-items:center;justify-content:center;
+    }
+
+    /* slideshow ảnh - stacked absolute */
+    .box .slide{position:absolute;inset:0;display:block}
+    .box img{width:100%;height:100%;object-fit:cover;display:block}
+
+    /* fade animation timing: each image shows for 4s with 1s crossfade. totalDuration = imgs * 4s */
+    .box .slide{opacity:0;animation:fade var(--dur) linear infinite}
+    /* we'll set --dur and animation-delay via JS per image */
+
+    @keyframes fade{
+      0%{opacity:0}
+      6%{opacity:1}
+      30%{opacity:1}
+      36%{opacity:0}
+      100%{opacity:0}
+    }
+
+    /* khung chữ chạy */
+    .textBox{
+      min-height:120px;height:auto;padding:16px;border-radius:16px;background:linear-gradient(180deg,var(--pink-light),#fff);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden
+    }
+    .cells{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;max-width:100%;}
+    .cell{
+      background:rgba(255,255,255,0.6);padding:8px 12px;border-radius:12px;font-weight:600;backdrop-filter:blur(4px);opacity:0;transform:translateY(12px);transition:all 220ms ease;
+      box-shadow:0 6px 14px rgba(0,0,0,0.06);
+    }
+
+    /* hidden when finished */
+    .cells.fade-out .cell{opacity:0;transform:translateY(-12px)}
+
+    /* small helper for controls */
+    .controls{display:flex;gap:8px;margin-top:8px;justify-content:center}
+    .btn{background:transparent;border:1px solid rgba(0,0,0,0.06);padding:8px 12px;border-radius:10px}
+
+    /* responsive tweak */
+    @media(min-width:480px){.box{height:56vh}}
+  </style>
+</head>
+<body>
+
+  <!-- TRANG 1: Màn hình chào -->
+  <div id="welcome" style="position:fixed;inset:0;background:#ffecf4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;text-align:center;z-index:20;">
+      <h1 style="font-size:28px;font-weight:800;color:#d94f94;margin:0 20px;">Tớ có điều này muốn gửi cậu 💗</h1>
+      <button id="enterBtn" style="padding:14px 26px;font-size:20px;font-weight:700;border:none;border-radius:16px;background:#ff8fc0;color:white;box-shadow:0 6px 14px rgba(0,0,0,0.15);">Ấn vô xem điii 💕</button>
+  </div>
+
+  <!-- TRANG 2: Nội dung chính -->
+  <div class="wrap" id="mainContent" style="opacity:0;pointer-events:none;transition:opacity .6s ease;">
+    <!-- Khung 1: ảnh (fade slideshow) -->
+    <div class="box" id="photoBox" aria-label="Khung ảnh">
+      <!-- images injected by JS -->
+    </div>
+
+    <!-- Khung 2: chữ chạy theo ô -->
+    <div class="textBox" id="textBox" aria-label="Khung lời chúc">
+      <div class="cells" id="cells"></div>
+    </div>
+
+    <div class="controls" style="justify-content:center;">
+      <button class="btn" id="restartBtn">Chạy lại</button>
+    </div>
+  </div>
+
+  <script>
+    // --- PHẦN ẢNH ---
+    // NOTE: mỗi link phải là *string* (được bọc trong dấu nháy kép hoặc nháy đơn)
+    // Ví dụ (thay LINK bằng link bạn tạo từ Google Drive hoặc Imgur):
+    // "https://drive.google.com/uc?export=view&id=ID_ẢNH"
+
+  const photos = [
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025103596523632/76936f97-ab16-44bb-8057-befa310ec60e.jfif?ex=691ca763&is=691b55e3&hm=43cdc0f53f603a66f4e83e84d85be76209f2f3dc19bed4a774e31a3bd131fd8e&=&format=webp&width=725&height=544",
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025104057630891/7711b74c-1c3e-4179-bba8-9343c72845a2.jfif?ex=691ca763&is=691b55e3&hm=f45d13afe9525cef4c9e596321f7da4456568a3353243b76bee27bc428b943e1&=&format=webp&width=725&height=544",
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025104598700102/2b4fce57-0047-4136-9628-c388afd4f71d.jfif?ex=691ca763&is=691b55e3&hm=ee7ae36f7b2e88b15046169593801e83b20e3877eed13bdeb3ca168e1e2b109d&=&format=webp&width=725&height=544",
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025105144090714/8e7811eb-af40-4b17-ab7e-a0b544199a14.jfif?ex=691ca763&is=691b55e3&hm=45a1968064481880295dc683c4c58ebc679e0e4ff07e4452b81d6018058d8eb6&=&format=webp&width=725&height=544",
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025105626562700/725ad524-ce3b-4b25-be3f-a8ccbbf1f6c8.jfif?ex=691ca763&is=691b55e3&hm=ebf5bea7645684f3a544e35e2ea9b5d4c13fcc718b653f202deb35f7b372f3eb&=&format=webp&width=725&height=544",
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025105987141863/ad780984-f0d2-47ad-ad36-0da098b91d5b.jfif?ex=691ca763&is=691b55e3&hm=6053ae9caa0c2616b723f58cdfe3a237aaeb71c703fc2e7cb3a283d5b522ffba&=&format=webp&width=717&height=544",
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025106457034784/8da4f499-191f-4b13-9d14-09ff49db14cd.jfif?ex=691ca763&is=691b55e3&hm=fb19cd19909f360fcc8f99f63e9a70619307287802b765080617642cf584fd9f&=&format=webp&width=810&height=544",
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025106960224439/3aebc866-28e5-48ac-91d5-1fd407d836c2.jfif?ex=691ca763&is=691b55e3&hm=afeff260aed34a63e15cb96f77becfabd2c1153fe92d03509132dc429f8472c6&=&format=webp&width=635&height=544",
+  "https://media.discordapp.net/attachments/1396468942834237500/1440025107597889703/9f437455-0e19-42d5-a20a-df62257a3765.jfif?ex=691ca764&is=691b55e4&hm=ee155cb2602a33f6b9e2a1548419285c6d003ec50ef192d38d9ea6ab1200601c&=&format=webp&width=670&height=544"
+    
+];
+    const photoBox = document.getElementById('photoBox');
+    const displayTime = 4000; // mỗi ảnh hiển thị khoảng 4s
+    const crossFade = 1200; // thời gian chuyển mờ (ms)
+
+    // Bảo vệ khi mảng rỗng: hiển thị placeholder thay vì gây lỗi
+    if (!Array.isArray(photos) || photos.length === 0) {
+      // placeholder
+      const ph = document.createElement('div');
+      ph.style.cssText = 'color:rgba(59,45,45,0.6);font-weight:700;padding:16px;text-align:center;';
+      ph.textContent = 'Chưa có ảnh. Hãy thay links trong mảng photos.';
+      photoBox.appendChild(ph);
+    } else {
+      const totalDur = photos.length * displayTime + crossFade; // tổng thời lượng vòng
+
+      // tạo các phần tử ảnh và đặt animation-delay cho mỗi ảnh
+      photos.forEach((src, i) => {
+        const s = document.createElement('div');
+        s.className = 'slide';
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = 'ảnh kỷ niệm ' + (i+1);
+        s.appendChild(img);
+        // set CSS variable cho animation duration và delay
+        s.style.setProperty('--dur', totalDur + 'ms');
+        const delay = i * displayTime;
+        s.style.animationDelay = delay + 'ms';
+        photoBox.appendChild(s);
+      });
+    }
+
+    // --- PHẦN CHỮ ---
+    const messages = [
+  'Cảm ơn vì tấm lòng của các bạn nữ của B3💖',
+  'Trải qua gần 3 năm, chúng tớ mong rằng',
+  'Sau này chúng ta sẽ nhớ mãi thời gian này',
+  'Nhớ mãi những kỉ niệm ở bên nhau',
+  '1 lần nữa',
+  'Cảm ơn các bạn rất nhiều 💕💕'
+];
+
+
+    const cellsContainer = document.getElementById('cells');
+    let current = 0;
+
+    function showMessage(idx){
+      cellsContainer.innerHTML = ''; // xóa ô cũ
+      const text = messages[idx];
+      // tạo một ô cho từng từ (hoặc ký tự nếu muốn) — ở đây dùng từ để đẹp hơn
+      const words = text.split(' ');
+
+      words.forEach((w, i) => {
+        const span = document.createElement('div');
+        span.className = 'cell';
+        span.textContent = w;
+        // vào animation: hiện từng ô với delay nhỏ
+        span.style.transitionDelay = (i * 80) + 'ms';
+        cellsContainer.appendChild(span);
+      });
+
+      // kích hoạt các ô (bởi vì chúng đã có transitionDelay)
+      requestAnimationFrame(() => {
+        const all = cellsContainer.querySelectorAll('.cell');
+        all.forEach(el => { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; });
+      });
+
+      // sau khi đầy ô và hiển thị trong thời gian tạm dừng, ẩn toàn bộ để chuyển sang thông điệp tiếp theo
+      const showDuration = Math.max(1800, words.length * 220 + 600); // thời gian giữ hiển thị
+      setTimeout(() => {
+        cellsContainer.classList.add('fade-out');
+        // xóa rồi gọi message tiếp theo
+        setTimeout(() => {
+          cellsContainer.classList.remove('fade-out');
+          current++;
+          if(current < messages.length) showMessage(current);
+          // nếu hết tin nhắn thì dừng, giữ trạng thái rỗng
+        }, 600);
+      }, showDuration);
+    }
+
+    // khởi chạy lần đầu
+    setTimeout(()=> showMessage(current), 600);
+
+    // nút chạy lại
+
+
+    // nếu muốn: ngưng slideshow ảnh khi không cần lặp vô hạn, có thể thay bằng animation iteration count 1
+  </script>
+<script>
+// --- MỞ TRANG CHÍNH KHI ẤN NÚT ---
+const enterBtn = document.getElementById('enterBtn');
+const welcome = document.getElementById('welcome');
+const mainContent = document.getElementById('mainContent');
+
+enterBtn.addEventListener('click', () => {
+  // Ẩn trang chào
+  welcome.style.opacity = '0';
+  welcome.style.transition = 'opacity .5s ease';
+  setTimeout(() => { welcome.style.display = 'none'; }, 500);
+
+  // Hiện trang chính
+  mainContent.style.opacity = '1';
+  mainContent.style.pointerEvents = 'auto';
+});
+</script>
+  <!-- MUSIC_PLACEHOLDER: Thay link nhạc vào thuộc tính src -->
+  <audio id="bgm" src="https://cdn.discordapp.com/attachments/1396468942834237500/1440026887278563482/Phep_Mau_an_Ca_Go_OST_-_Mounter_x_MAYDAYs_Minh_Toc_Official_MV_-_Mounter.mp3?ex=691ca90c&is=691b578c&hm=c0f28f756fa84afa73f4f77f7cfe01575d2c83993ddc5c09663d150779b22f76&" autoplay loop hidden></audio>
+
+<script>
+// Bật nhạc ngay khi người dùng chạm vào màn hình
+const bgm = document.getElementById('bgm');
+function enableMusic(){
+  bgm.play().catch(()=>{});
+  document.removeEventListener('click', enableMusic);
+  document.removeEventListener('touchstart', enableMusic);
+}
+// kích hoạt khi chạm hoặc click
+document.addEventListener('click', enableMusic);
+document.addEventListener('touchstart', enableMusic);
+</script>
+
+<script>
+// --- HIỆU ỨNG RƠI BIỂU TƯỢNG ---
+const icons = ["❤️","🩷","🧡","💛","💚","💙","🩵","💜","🤎","🖤","🩶","🤍","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","❤️‍🔥","❤️‍🩹","🫶","🫰","🤟","🫀","👫","💑","💏","💋","♥️","😍","🎓","⭐"];
+
+function createFalling(){
+  const el = document.createElement('div');
+  el.className = 'fallingIcon';
+  el.textContent = icons[Math.floor(Math.random()*icons.length)];
+  el.style.left = Math.random()*100 + 'vw';
+  el.style.fontSize = (20 + Math.random()*20) + 'px';
+  el.style.animationDuration = (3 + Math.random()*4) + 's';
+  document.body.appendChild(el);
+
+  setTimeout(()=> el.remove(), 7000);
+}
+
+// tạo rơi đều đặn nhưng không quá dày
+timer = setInterval(createFalling, 900);
+</script>
+
+<style>
+.fallingIcon{
+  position:fixed;
+  top:-10%;
+  animation-name: fallAnim;
+  animation-timing-function: linear;
+  pointer-events:none;
+  filter: drop-shadow(0 3px 3px rgba(0,0,0,0.18));
+}
+@keyframes fallAnim{
+  0%{ transform: translateY(0) rotate(0deg); opacity:1; }
+  80%{ opacity:1; }
+  100%{ transform: translateY(120vh) rotate(360deg); opacity:0; }
+}
+</style>
+
+<div id="heartEffect" style="position:fixed;inset:0;display:none;z-index:9999;background:black;"><canvas id="pinkboard"></canvas></div>
+<script>
+// Hiển thị hiệu ứng tim sau 30s
+setTimeout(()=>{
+ document.getElementById('heartEffect').style.display='block';
+ startHeartEffect();
+},30000);
+
+// --- HEART EFFECT CODE ---
+function startHeartEffect(){
+  const canvas = document.getElementById('pinkboard');
+  const ctx = canvas.getContext('2d');
+
+  let width, height, hearts = [];
+
+  function resize(){
+    width = canvas.width = innerWidth;
+    height = canvas.height = innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  function Heart(){
+    this.x = Math.random()*width;
+    this.y = height + Math.random()*200;
+    this.size = 10 + Math.random()*20;
+    this.speed = 1 + Math.random()*2;
+    this.alpha = 0.7 + Math.random()*0.3;
+    this.color = `hsl(${Math.random()*360}, 80%, 70%)`;
+  }
+
+  Heart.prototype.draw = function(){
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.size/20, this.size/20);
+    ctx.beginPath();
+    ctx.moveTo(0, -10);
+    ctx.bezierCurveTo(12, -25, 35, -5, 0, 20);
+    ctx.bezierCurveTo(-35, -5, -12, -25, 0, -10);
+    ctx.fillStyle = this.color;
+    ctx.globalAlpha = this.alpha;
+    ctx.fill();
+    ctx.restore();
+  };
+
+  function update(){
+    ctx.clearRect(0,0,width,height);
+    if(hearts.length < 50) hearts.push(new Heart());
+
+    hearts.forEach((h,i)=>{
+      h.y -= h.speed;
+      h.x += Math.sin(Date.now()/300 + i)*0.5;
+      if(h.y < -40) hearts[i] = new Heart();
+      h.draw();
+    });
+
+    requestAnimationFrame(update);
+  }
+  update();
+}
+</script>
+</body>
+</html>
